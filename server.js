@@ -10,7 +10,7 @@ const port = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+// Note: Static files are served directly by Vercel, not by Express
 
 // Note: Twilio SDK is now served from public folder
 
