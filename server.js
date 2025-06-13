@@ -12,8 +12,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Serve Twilio Voice SDK from node_modules
-app.use('/node_modules', express.static('node_modules'));
+// Note: Twilio SDK is now served from public folder
 
 // Twilio credentials (will be set from environment variables)
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
