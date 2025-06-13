@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twilio Dialer - Helistaja</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-phone"></i> Twilio Helistaja</h1>
+            <div class="status" id="status">
+                <span class="status-indicator offline" id="statusIndicator"></span>
+                <span id="statusText">Ühendamine...</span>
+            </div>
+        </header>
+
+        <main>
+            <div class="dialer-section">
+                <div class="phone-display">
+                    <input type="tel" id="phoneNumber" placeholder="Sisesta telefoninumber..." maxlength="20">
+                    <button id="clearNumber" class="clear-btn" title="Kustuta number">
+                        <i class="fas fa-backspace"></i>
+                    </button>
+                </div>
+
+                <div class="keypad">
+                    <div class="keypad-row">
+                        <button class="key" data-digit="1">1<span></span></button>
+                        <button class="key" data-digit="2">2<span>ABC</span></button>
+                        <button class="key" data-digit="3">3<span>DEF</span></button>
+                    </div>
+                    <div class="keypad-row">
+                        <button class="key" data-digit="4">4<span>GHI</span></button>
+                        <button class="key" data-digit="5">5<span>JKL</span></button>
+                        <button class="key" data-digit="6">6<span>MNO</span></button>
+                    </div>
+                    <div class="keypad-row">
+                        <button class="key" data-digit="7">7<span>PQRS</span></button>
+                        <button class="key" data-digit="8">8<span>TUV</span></button>
+                        <button class="key" data-digit="9">9<span>WXYZ</span></button>
+                    </div>
+                    <div class="keypad-row">
+                        <button class="key" data-digit="*">*<span></span></button>
+                        <button class="key" data-digit="0">0<span>+</span></button>
+                        <button class="key" data-digit="#">#<span></span></button>
+                    </div>
+                </div>
+
+                <div class="call-controls">
+                    <button id="callButton" class="call-btn" disabled>
+                        <i class="fas fa-phone"></i>
+                        <span>Helista</span>
+                    </button>
+                    <button id="hangupButton" class="hangup-btn" style="display: none;">
+                        <i class="fas fa-phone-slash"></i>
+                        <span>Lõpeta</span>
+                    </button>
+                </div>
+
+                <div class="call-info" id="callInfo" style="display: none;">
+                    <div class="call-status">
+                        <i class="fas fa-phone-volume"></i>
+                        <span id="callStatusText">Helistamine...</span>
+                    </div>
+                    <div class="call-duration" id="callDuration">00:00</div>
+                </div>
+            </div>
+
+            <div class="audio-controls">
+                <h3><i class="fas fa-volume-up"></i> Audio seaded</h3>
+                <div class="audio-settings">
+                    <div class="setting-group">
+                        <label for="microphoneSelect">Mikrofon:</label>
+                        <select id="microphoneSelect">
+                            <option value="">Vali mikrofon...</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label for="speakerSelect">Kõlarid/Kõrvaklapid:</label>
+                        <select id="speakerSelect">
+                            <option value="">Vali väljund...</option>
+                        </select>
+                    </div>
+                    <div class="volume-control">
+                        <label for="volumeSlider">Helitugevus:</label>
+                        <input type="range" id="volumeSlider" min="0" max="100" value="80">
+                        <span id="volumeValue">80%</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <div class="logs" id="logs">
+                <h4>Logid:</h4>
+                <div class="log-content" id="logContent">
+                    Rakendus käivitub...
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Twilio Voice SDK from local node_modules -->
+    <script src="/node_modules/@twilio/voice-sdk/dist/twilio.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html> 
