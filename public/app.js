@@ -5,43 +5,15 @@ class TwilioDialer {
         this.token = null;
         this.callStartTime = null;
         this.callTimer = null;
-        this.audioContextResumed = false;
         this.deviceReady = false;
-        this.microphonePermissionGranted = false;
         
         this.initializeElements();
         this.bindEvents();
         this.prepareToken();
         this.setupAudioDevices();
-        
-        // Check if microphone permission was already granted
-        this.checkMicrophonePermission();
     }
 
-    async checkMicrophonePermission() {
-        try {
-            // Check if we already have microphone permission
-            const permission = await navigator.permissions.query({ name: 'microphone' });
-            
-            if (permission.state === 'granted') {
-                this.log('✅ Mikrofoni luba juba olemas');
-                this.microphonePermissionGranted = true;
-                this.audioContextResumed = true;
-                
-                // Refresh audio devices to get proper labels
-                await this.refreshAudioDevices();
-                
-                // Initialize Twilio Device immediately if token is ready
-                if (this.token) {
-                    await this.initializeTwilio();
-                }
-            } else {
-                this.log('⚠️ Mikrofoni luba puudub - ootan kasutaja tegevust');
-            }
-        } catch (error) {
-            this.log(`⚠️ Mikrofoni loa kontroll ebaõnnestus: ${error.message}`);
-        }
-    }
+
 
     initializeElements() {
         // UI Elements
@@ -68,10 +40,7 @@ class TwilioDialer {
 
     bindEvents() {
         // Call controls
-        this.callButton.addEventListener('click', () => {
-            this.resumeAudioContext();
-            this.makeCall();
-        });
+        this.callButton.addEventListener('click', () => this.makeCall());
         this.hangupButton.addEventListener('click', () => this.hangupCall());
         this.clearButton.addEventListener('click', () => this.clearNumber());
         
@@ -79,7 +48,6 @@ class TwilioDialer {
         this.phoneNumberInput.addEventListener('input', () => this.validatePhoneNumber());
         this.phoneNumberInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                this.resumeAudioContext();
                 this.makeCall();
             }
         });
@@ -87,7 +55,6 @@ class TwilioDialer {
         // Keypad
         this.keypadButtons.forEach(button => {
             button.addEventListener('click', () => {
-                this.resumeAudioContext();
                 const digit = button.dataset.digit;
                 this.addDigit(digit);
             });
@@ -102,9 +69,6 @@ class TwilioDialer {
         
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboard(e));
-        
-        // First user interaction to enable audio
-        document.addEventListener('click', () => this.resumeAudioContext(), { once: true });
     }
 
     async prepareToken() {
@@ -141,14 +105,9 @@ class TwilioDialer {
                 this.log(`⚠️ Token decode viga: ${e.message}`);
             }
             
-            // If microphone permission is already granted, initialize immediately
-            if (this.microphonePermissionGranted) {
-                this.log('🚀 Mikrofoni luba olemas - käivitan Twilio teenust...');
-                await this.initializeTwilio();
-            } else {
-                this.log('👆 Kliki mis tahes kohale, et käivitada mikrofoniga helistamine');
-                this.updateStatus('offline', 'Kliki käivitamiseks');
-            }
+            // Initialize Twilio Device immediately when token is ready
+            this.log('🚀 Token valmis - käivitan Twilio teenust...');
+            await this.initializeTwilio();
             
         } catch (error) {
             this.log(`❌ Token viga: ${error.message}`);
@@ -364,6 +323,23 @@ class TwilioDialer {
     }
 
     async makeCall() {
+        // Request microphone permission if not already granted
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: true, 
+                video: false 
+            });
+            this.log('✅ Mikrofoni luba saadud');
+            // Stop the stream immediately - we just needed permission
+            stream.getTracks().forEach(track => track.stop());
+            // Refresh audio devices to get proper labels
+            await this.refreshAudioDevices();
+        } catch (error) {
+            this.log(`❌ Mikrofoni luba vajalik: ${error.message}`);
+            this.updateStatus('offline', 'Mikrofoni luba vajalik');
+            return;
+        }
+
         const phoneNumber = this.phoneNumberInput.value.trim();
         
         if (!phoneNumber) {
@@ -542,45 +518,7 @@ class TwilioDialer {
         this.statusText.textContent = text;
     }
 
-    async resumeAudioContext() {
-        if (this.audioContextResumed) return;
-        
-        try {
-            this.log('🔊 Kasutaja klikk - käivitan audio teenused...');
-            
-            // Request microphone permission first
-            try {
-                this.log('🎤 Küsin mikrofoni luba...');
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: true, 
-                    video: false 
-                });
-                this.log('✅ Mikrofoni luba saadud');
-                this.microphonePermissionGranted = true;
-                
-                // Stop the stream immediately - we just needed permission
-                stream.getTracks().forEach(track => track.stop());
-                
-                // Refresh audio devices to get proper labels
-                await this.refreshAudioDevices();
-                
-            } catch (error) {
-                this.log(`❌ Mikrofoni luba keeldutud: ${error.message}`);
-                this.updateStatus('offline', 'Mikrofoni luba vajalik');
-                return;
-            }
-            
-            // Initialize Twilio Device now that we have user gesture and mic permission
-            if (!this.deviceReady && this.token) {
-                await this.initializeTwilio();
-            }
-            
-            this.audioContextResumed = true;
-            
-        } catch (error) {
-            this.log(`⚠️ Audio käivitamise viga: ${error.message}`);
-        }
-    }
+
 
     async testTwilioConnectivity() {
         try {
@@ -611,36 +549,13 @@ class TwilioDialer {
 }
 
 // Initialize the dialer when page loads
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, initializing Twilio Dialer...');
     console.log('Twilio object available:', typeof Twilio);
     
     if (typeof Twilio !== 'undefined') {
         console.log('✅ Twilio SDK loaded successfully');
-        
-        // Request microphone permission immediately
-        try {
-            console.log('🎤 Küsin mikrofoni luba automaatselt...');
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: true, 
-                video: false 
-            });
-            console.log('✅ Mikrofoni luba saadud automaatselt');
-            
-            // Stop the stream immediately - we just needed permission
-            stream.getTracks().forEach(track => track.stop());
-            
-            // Initialize dialer with microphone permission already granted
-            window.dialer = new TwilioDialer();
-            
-        } catch (error) {
-            console.log(`⚠️ Automaatne mikrofoni luba ebaõnnestus: ${error.message}`);
-            console.log('Kasutaja peab käsitsi luba andma');
-            
-            // Initialize dialer normally - user will need to click for permission
-            window.dialer = new TwilioDialer();
-        }
-        
+        window.dialer = new TwilioDialer();
     } else {
         console.error('❌ Twilio SDK not available');
         document.getElementById('statusText').textContent = 'Twilio SDK ei ole kättesaadav';
