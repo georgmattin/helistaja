@@ -98,11 +98,20 @@ class TwilioDialer {
             try {
                 const tokenParts = this.token.split('.');
                 const payload = JSON.parse(atob(tokenParts[1]));
-                this.log(`🔍 Token identity: ${payload.iss || 'N/A'}`);
-                this.log(`🔍 Token grants: ${JSON.stringify(payload.grants || {})}`);
-                this.log(`🔍 Token expires: ${new Date(payload.exp * 1000).toLocaleString()}`);
+                this.log(`🔍 Token Account SID: ${payload.iss || 'N/A'}`);
+                this.log(`🔍 Token Identity: ${payload.sub || 'N/A'}`);
+                this.log(`🔍 Token Grants: ${JSON.stringify(payload.grants || {}, null, 2)}`);
+                this.log(`🔍 Token Expires: ${new Date(payload.exp * 1000).toLocaleString()}`);
+                this.log(`🔍 Token Valid: ${payload.exp * 1000 > Date.now() ? 'YES' : 'NO'}`);
+                
+                // Check if voice grant exists
+                if (payload.grants && payload.grants.voice) {
+                    this.log(`✅ Voice grant found: ${JSON.stringify(payload.grants.voice, null, 2)}`);
+                } else {
+                    this.log(`❌ Voice grant MISSING from token!`);
+                }
             } catch (e) {
-                this.log(`⚠️ Token decode viga: ${e.message}`);
+                this.log(`⚠️ Token decode error: ${e.message}`);
             }
             
             // Initialize Twilio Device immediately when token is ready
@@ -133,52 +142,80 @@ class TwilioDialer {
                 debug: true
             });
             
-            // Device event listeners
+            // Device event listeners with detailed debugging
             this.device.on('ready', () => {
-                this.log('✅ Twilio ühendus valmis!');
+                this.log('✅ Twilio Device READY!');
+                this.log(`🔍 Device state: ${this.device.state}`);
+                this.log(`🔍 Device identity: ${this.device.identity || 'N/A'}`);
                 this.updateStatus('online', 'Valmis helistamiseks');
                 this.deviceReady = true;
                 this.validatePhoneNumber();
             });
             
             this.device.on('error', (error) => {
-                this.log(`❌ Twilio viga: ${error.message}`);
+                this.log(`❌ Twilio ERROR: ${error.message}`);
                 this.log(`❌ Error code: ${error.code || 'N/A'}`);
-                this.log(`❌ Error details: ${JSON.stringify(error)}`);
-                this.updateStatus('offline', 'Viga ühenduses');
+                this.log(`❌ Error name: ${error.name || 'N/A'}`);
+                this.log(`❌ Full error: ${JSON.stringify(error, null, 2)}`);
+                this.updateStatus('offline', `Viga: ${error.message}`);
             });
             
             this.device.on('tokenWillExpire', () => {
-                this.log('⚠️ Token aegub varsti');
+                this.log('⚠️ Token aegub varsti - uuendan...');
             });
             
             this.device.on('registering', () => {
-                this.log('📡 Registreerimine Twilio serverisse...');
+                this.log('📡 REGISTERING to Twilio...');
+                this.log(`🔍 Current state: ${this.device.state}`);
                 this.updateStatus('connecting', 'Registreerimine...');
+                
+                // Set a timeout to detect stuck registration
+                setTimeout(() => {
+                    if (this.device && this.device.state === 'registering') {
+                        this.log('⚠️ Registration võtab liiga kaua aega!');
+                        this.log(`🔍 Device state stuck at: ${this.device.state}`);
+                        this.testTwilioConnectivity();
+                    }
+                }, 10000); // 10 seconds timeout
             });
             
             this.device.on('registered', () => {
-                this.log('✅ Registreeritud Twilio serveris');
+                this.log('✅ REGISTERED to Twilio successfully');
+                this.log(`🔍 Device state: ${this.device.state}`);
             });
             
             this.device.on('unregistered', (error) => {
-                this.log('📴 Registreering tühistatud');
+                this.log('📴 UNREGISTERED from Twilio');
+                this.log(`🔍 Device state: ${this.device.state}`);
                 if (error) {
-                    this.log(`❌ Registreerimise viga: ${error.message}`);
-                    this.log(`❌ Error details: ${JSON.stringify(error)}`);
+                    this.log(`❌ Unregistration error: ${error.message}`);
+                    this.log(`❌ Error details: ${JSON.stringify(error, null, 2)}`);
                 }
                 this.updateStatus('offline', 'Registreerimise viga');
             });
 
             this.device.on('offline', () => {
-                this.log('📴 Device läks offline');
+                this.log('📴 Device went OFFLINE');
+                this.log(`🔍 Device state: ${this.device.state}`);
                 this.updateStatus('offline', 'Ühendus kadunud');
             });
 
             // Additional connection events
             this.device.on('destroyed', () => {
-                this.log('💥 Device hävitatud');
+                this.log('💥 Device DESTROYED');
             });
+            
+            // Log current device state every few seconds for debugging
+            const stateLogger = setInterval(() => {
+                if (this.device) {
+                    this.log(`🔍 Device state check: ${this.device.state}`);
+                    if (this.device.state === 'ready') {
+                        clearInterval(stateLogger);
+                    }
+                } else {
+                    clearInterval(stateLogger);
+                }
+            }, 3000);
 
             // Listen for WebSocket events
             if (this.device.connection) {
