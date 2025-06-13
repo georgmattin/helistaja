@@ -143,11 +143,17 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(port, () => {
-    console.log(`🚀 Dialer server running on http://localhost:${port}`);
-    console.log(`📱 Twilio configured: ${!!client}`);
-    
-    if (!client) {
-        console.log('⚠️  Please configure Twilio environment variables to enable calling');
-    }
-}); 
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(port, () => {
+        console.log(`🚀 Dialer server running on http://localhost:${port}`);
+        console.log(`📱 Twilio configured: ${!!client}`);
+        
+        if (!client) {
+            console.log('⚠️  Please configure Twilio environment variables to enable calling');
+        }
+    });
+}
+
+// Export for Vercel
+module.exports = app; 
