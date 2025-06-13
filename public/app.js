@@ -114,9 +114,9 @@ class TwilioDialer {
                 this.log(`⚠️ Token decode error: ${e.message}`);
             }
             
-            // Initialize Twilio Device immediately when token is ready
-            this.log('🚀 Token valmis - käivitan Twilio teenust...');
-            await this.initializeTwilio();
+            // Request microphone permission and initialize Device
+            this.log('🎤 Küsin mikrofoni luba automaatselt...');
+            await this.requestMicrophoneAndInitialize();
             
         } catch (error) {
             this.log(`❌ Token viga: ${error.message}`);
@@ -124,6 +124,35 @@ class TwilioDialer {
             
             // Check server health
             this.checkServerHealth();
+        }
+    }
+
+    async requestMicrophoneAndInitialize() {
+        try {
+            this.log('🎤 Küsin mikrofoni luba...');
+            this.updateStatus('connecting', 'Küsin mikrofoni luba...');
+            
+            // Request microphone permission
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: true, 
+                video: false 
+            });
+            
+            this.log('✅ Mikrofoni luba saadud!');
+            
+            // Stop the stream immediately - we just needed permission
+            stream.getTracks().forEach(track => track.stop());
+            
+            // Refresh audio devices to get proper labels
+            await this.refreshAudioDevices();
+            
+            // Now initialize Twilio Device with microphone permission granted
+            await this.initializeTwilio();
+            
+        } catch (error) {
+            this.log(`❌ Mikrofoni luba keeldutud: ${error.message}`);
+            this.updateStatus('offline', 'Mikrofoni luba vajalik');
+            this.log('⚠️ Palun andke mikrofoni luba ja värskendage lehte');
         }
     }
 
@@ -360,23 +389,6 @@ class TwilioDialer {
     }
 
     async makeCall() {
-        // Request microphone permission if not already granted
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: true, 
-                video: false 
-            });
-            this.log('✅ Mikrofoni luba saadud');
-            // Stop the stream immediately - we just needed permission
-            stream.getTracks().forEach(track => track.stop());
-            // Refresh audio devices to get proper labels
-            await this.refreshAudioDevices();
-        } catch (error) {
-            this.log(`❌ Mikrofoni luba vajalik: ${error.message}`);
-            this.updateStatus('offline', 'Mikrofoni luba vajalik');
-            return;
-        }
-
         const phoneNumber = this.phoneNumberInput.value.trim();
         
         if (!phoneNumber) {
